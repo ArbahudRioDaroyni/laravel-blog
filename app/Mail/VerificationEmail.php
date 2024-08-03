@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
+use App\Models\User;
 
 class VerificationEmail extends Mailable
 {
@@ -13,7 +14,7 @@ class VerificationEmail extends Mailable
 
 	public $verificationUrl;
 
-	public function __construct($user)
+	public function __construct(User $user)
 	{
 		$this->verificationUrl = URL::signedRoute('verification.verify', [
 			'id' => $user->id,

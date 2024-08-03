@@ -7,7 +7,7 @@ use App\Http\Controllers\{
 	AuthController,
 };
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['verified'])->group(function () {
 	Route::get('/', function () {
 		return view('welcome');
 	});

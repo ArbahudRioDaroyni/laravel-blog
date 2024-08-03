@@ -12,9 +12,17 @@ use Illuminate\Support\Str;
 use App\Mail\VerificationEmail;
 use App\Mail\ResetPasswordEmail;
 use App\Models\User;
+use App\Services\AuthService;
 
 class AuthController extends Controller
 {
+	protected $authService;
+
+	public function __construct(AuthService $authService)
+	{
+		$this->authService = $authService;
+	}
+
 	public function showLoginForm()
 	{
 		return view('auth.login');
@@ -24,7 +32,7 @@ class AuthController extends Controller
 	{
 		$credentials = $request->only('email', 'password');
 
-		if (Auth::attempt($credentials)) {
+		if ($this->authService->login($credentials)) {
 			$request->session()->regenerate();
 			return redirect()->intended('/');
 		}
@@ -55,15 +63,8 @@ class AuthController extends Controller
 			'email' => 'required|string|email|max:255|unique:users',
 			'password' => 'required|string|min:8|confirmed',
 		]);
-
-		$user = User::create([
-			'name' => $request->name,
-			'email' => $request->email,
-			'password' => Hash::make($request->password),
-		]);
-
-		// Manual action for send email $user->sendEmailVerificationNotification() or event(new Registered($user))
-		Mail::to($user->email)->send(new VerificationEmail($user));
+		
+		$this->authService->register($request->only(['name', 'email', 'password']));
 
 		return redirect('/')->with('status', 'verification-link-sent');
 	}
