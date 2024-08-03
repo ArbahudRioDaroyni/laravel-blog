@@ -7,49 +7,73 @@ use App\Http\Controllers\{
 	AuthController,
 };
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
 	Route::get('/', function () {
 		return view('welcome');
 	});
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
-	//
-});
+Route::group([
+	'prefix' => 'login',
+	'middleware' => 'guest'
+], function () {
+	Route::get('/', [AuthController::class, 'showLoginForm'])
+	->name('login');
 
-Route::prefix('login')->middleware('guest')->group(function () {
-	Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
 	Route::post('/', [AuthController::class, 'login']);
 });
 
-Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('logout', [AuthController::class, 'logout'])
+->name('logout')
+->middleware('auth');
 
-Route::prefix('register')->middleware('guest')->group(function () {
-	Route::get('/', [AuthController::class, 'showRegisterForm'])->name('register');
+Route::group([
+	'prefix' => 'register',
+	'middleware' => 'guest'
+], function () {
+	Route::get('/', [AuthController::class, 'showRegisterForm'])
+	->name('register');
+
 	Route::post('/', [AuthController::class, 'register']);
 });
 
 Route::prefix('email')->group(function () {
-	// 'throttle:6,1'
 	Route::post('/verification-notification', [AuthController::class, 'resendVerificationEmail'])
-	->middleware(['auth'])->name('verification.send');
+	->middleware(['auth', 'throttle:6,1'])
+	->name('verification.send');
 
 	Route::get('/notice', function () {
 		return view('auth.verify-email');
-	})->middleware(['auth'])->name('verification.notice');
+	})
+	->middleware(['auth'])
+	->name('verification.notice');
 
 	Route::get('email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
 		$request->fulfill();
 		return redirect('/');
-	})->middleware(['auth', 'signed'])->name('verification.verify');
+	})
+	->middleware(['auth', 'signed'])
+	->name('verification.verify');
 });
 
-Route::prefix('forgot-password')->middleware('guest')->group(function () {
-	Route::get('/', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
-	Route::post('/', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::group([
+	'prefix' => 'forgot-password',
+	'middleware' => 'guest'
+], function () {
+	Route::get('/', [AuthController::class, 'showForgotPasswordForm'])
+	->name('password.request');
+
+	Route::post('/', [AuthController::class, 'sendResetLinkEmail'])
+	->name('password.email');
 });
 
-Route::prefix('reset-password')->middleware('guest')->group(function () {
-	Route::get('/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
-	Route::post('/', [AuthController::class, 'resetPassword'])->name('password.update');
+Route::group([
+	'prefix' => 'reset-password',
+	'middleware' => 'guest'
+], function () {
+	Route::get('/{token}', [AuthController::class, 'showResetForm'])
+	->name('password.reset');
+
+	Route::post('/', [AuthController::class, 'resetPassword'])
+	->name('password.update');
 });
