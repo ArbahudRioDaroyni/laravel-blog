@@ -11,6 +11,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
 use App\Mail\VerificationEmail;
 use App\Mail\ResetPasswordEmail;
+use App\Http\Requests\registerUserRequest;
 use App\Models\User;
 use App\Services\AuthService;
 
@@ -56,15 +57,9 @@ class AuthController extends Controller
 		return view('auth.register');
 	}
 
-	public function register(Request $request)
+	public function register(registerUserRequest $request): RedirectResponse
 	{
-		$request->validate([
-			'name' => 'required|string|max:255',
-			'email' => 'required|string|email|max:255|unique:users',
-			'password' => 'required|string|min:8|confirmed',
-		]);
-		
-		$this->authService->register($request->only(['name', 'email', 'password']));
+		$this->authService->register($request->safe()->only(['name', 'email', 'password']));
 
 		return redirect('/')->with('status', 'verification-link-sent');
 	}

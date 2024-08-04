@@ -10,22 +10,22 @@ use App\Mail\VerificationEmail;
 
 class UserRepository implements UserRepositoryInterface
 {
-    public function attemptLogin(array $credentials): bool
-    {
-        return Auth::attempt($credentials);
-    }
+	public function attemptLogin(array $credentials): bool
+	{
+		return Auth::attempt($credentials);
+	}
 
-		public function register(array $data)
-    {
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
+	public function register(array $data)
+	{
+		$user = User::create([
+			'name' => $data['name'],
+			'email' => $data['email'],
+			'password' => Hash::make($data['password']),
+		]);
 
-        // Manual action for send email $user->sendEmailVerificationNotification() or event(new Registered($user))
-        Mail::to($user->email)->send(new VerificationEmail($user));
+		// Manual action for send email $user->sendEmailVerificationNotification() or event(new Registered($user))
+		Mail::to($user->email)->send(new VerificationEmail($user));
 
-        return $user;
-    }
+		return $user;
+	}
 }

@@ -205,7 +205,7 @@ class AuthController extends Controller
     ]);
   }
 
-  public function register(Request $request)
+  public function register(registerUserRequest $request): RedirectResponse
   {
     $request->validate([
       'name' => 'required|string|max:255',
