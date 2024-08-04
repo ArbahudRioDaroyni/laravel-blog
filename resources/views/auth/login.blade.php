@@ -8,14 +8,23 @@
 @endif
 <form method="POST" action="{{ route('login') }}">
 	@csrf
-	<div class="form-group">
-		<label for="email">Email:</label>
-		<input type="email" id="email" name="email" class="form-control" required>
+
+	<label for="email">{{ __('E-Mail Address') }}</label>
+	<div>
+		<input id="email" type="email" class="@error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="email">
+		@error('email')
+			<strong>{{ $message }}</strong>
+		@enderror
 	</div>
-	<div class="form-group">
-		<label for="password">Password:</label>
-		<input type="password" id="password" name="password" class="form-control" required>
+
+	<label for="password" class="col-md-4 col-form-label text-md-right">{{ __('Password') }}</label>
+	<div>
+		<input id="password" type="password" class="@error('password') is-invalid @enderror" name="password" required autocomplete="new-password">
+		@error('password')
+			<strong>{{ $message }}</strong>
+		@enderror
 	</div>
+	
 	<button type="submit" class="btn btn-primary">Login</button>
 </form>
 @endsection

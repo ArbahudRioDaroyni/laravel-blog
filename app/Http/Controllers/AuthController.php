@@ -8,123 +8,110 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
+use App\Models\User;
 use App\Http\Requests\LoginFormRequest;
 use App\Http\Requests\RegisterFormRequest;
-use App\Models\User;
+use App\Http\Requests\ResetPasswordRequest;
 use App\Services\AuthService;
-use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
-	protected $authService;
+    protected $authService;
 
-	public function __construct(AuthService $authService)
-	{
-		$this->authService = $authService;
-	}
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
 
-	public function showLoginForm()
-	{
-		return view('auth.login');
-	}
+    public function showLoginForm()
+    {
+        return view('auth.login');
+    }
 
-	public function login(LoginFormRequest $request)
-	{
-		$credentials = $request->only('email', 'password');
+    public function login(LoginFormRequest $request)
+    {
+        $credentials = $request->safe()->only('email', 'password');
+        if ($this->authService->isAuthenticate($credentials)) {
+            session()->regenerate();
+            return redirect()->intended('/');
+        }
 
-		if ($this->authService->authenticate($credentials)) {
-			session()->regenerate();
-			return redirect()->intended('/');
-		}
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ]);
+    }
 
-		return back()->withErrors([
-			'email' => 'The provided credentials do not match our records.',
-		]);
-	}
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        session()->invalidate();
+        session()->regenerateToken();
 
-	public function logout(Request $request)
-	{
-		Auth::logout();
-		session()->invalidate();
-		session()->regenerateToken();
+        return redirect('/login');
+    }
 
-		return redirect('/login');
-	}
+    public function showRegisterForm()
+    {
+        return view('auth.register');
+    }
 
-	public function showRegisterForm()
-	{
-		return view('auth.register');
-	}
+    public function register(RegisterFormRequest $request)
+    {
+        $user = $request->safe()->only(['name', 'email', 'password']);
+        $this->authService->register($user);
 
-	public function register(RegisterFormRequest $request)
-	{
-		$user = $request->safe()->only(['name', 'email', 'password']);
-		$this->authService->register($user);
+        return redirect('/')->with('status', 'verification-link-sent');
+    }
 
-		return redirect('/')->with('status', 'verification-link-sent');
-	}
+    public function showVerifiedEmailStatus()
+    {
+        return !$request->user()->hasVerifiedEmail()
+            ? view('auth.verify-email')
+            : redirect('/');
+    }
 
-	public function showEmailNotice()
-	{
-		return !$request->user()->hasVerifiedEmail() ? view('auth.verify-email') : redirect('/');
-	}
+    public function resendVerificationEmail(Request $request)
+    {
+        $user = $request->user();
+        if ($user->hasVerifiedEmail()) {
+            return redirect('/')->with('status', 'Your email is already verified.');
+        }
+        $this->authService->resendVerificationEmail($user);
 
-	public function resendVerificationEmail(Request $request)
-	{
-		$user = $request->user();
-		$this->authService->resendVerificationEmail($user);
+        return back()->with('status', 'verification-link-sent');
+    }
 
-		return back()->with('status', 'verification-link-sent');
-	}
+    public function showForgotPasswordForm()
+    {
+        return view('auth.forgot-password');
+    }
 
-	public function showForgotPasswordForm()
-	{
-		return view('auth.forgot-password');
-	}
+    public function sendResetLinkEmail(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        $status = $this->authService->sendResetLinkEmail(
+            $request->only('email')
+        );
 
-	public function sendResetLinkEmail(Request $request)
-	{
-		$request->validate(['email' => 'required|email']);
+        return $status === Password::RESET_LINK_SENT
+            ? back()->with(['status' => __($status)])
+            : back()->withErrors(['email' => __($status)]);
 
-		$status = Password::sendResetLink(
-				$request->only('email')
-		);
+        return back()->with('status', 'We have emailed your password reset link!');
+    }
 
-		return $status === Password::RESET_LINK_SENT
-			? back()->with(['status' => __($status)])
-			: back()->withErrors(['email' => __($status)]);
+    public function showResetForm($token)
+    {
+        return view('auth.reset-password', ['token' => $token]);
+    }
 
-		return back()->with('status', 'We have emailed your password reset link!');
-	}
+    public function resetPassword(ResetPasswordRequest $request)
+    {
+        $data = $request->safe()->only('email', 'password', 'password_confirmation', 'token');
+        $status = $this->authService->resetPassword($data);
 
-	public function showResetForm($token)
-	{
-		return view('auth.reset-password', ['token' => $token]);
-	}
-
-	public function resetPassword(Request $request)
-	{
-		$request->validate([
-			'token' => 'required',
-			'email' => 'required|email',
-			'password' => 'required|min:8|confirmed',
-		]);
-
-		$status = Password::reset(
-			$request->only('email', 'password', 'password_confirmation', 'token'),
-			function ($user, $password) {
-				$user->forceFill([
-					'password' => Hash::make($password)
-				])->setRememberToken(Str::random(60));
-
-				$user->save();
-
-				event(new PasswordReset($user));
-			}
-		);
-
-		return $status === Password::PASSWORD_RESET
-			? redirect()->route('login')->with('status', __($status))
-			: back()->withErrors(['email' => [__($status)]]);
-	}
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('status', __($status))
+            : back()->withErrors(['email' => [__($status)]]);
+    }
 }

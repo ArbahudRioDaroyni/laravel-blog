@@ -5,10 +5,11 @@
 	@csrf
 	<input type="hidden" name="token" value="{{ $token }}">
 	<input type="hidden" name="email" value="{{ $_GET['email'] }}">
-	<label for="password">Password:</label>
+	
+	<label for="password">{{ __('Password') }}</label>
 	<div>
-		<input type="password" id="password" name="password" class="form-control" required>
-		@error('email')
+		<input id="password" type="password" class="@error('password') is-invalid @enderror" name="password" required autocomplete="new-password">
+		@error('password')
 			<strong>{{ $message }}</strong>
 		@enderror
 	</div>
