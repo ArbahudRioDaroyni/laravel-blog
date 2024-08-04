@@ -27,33 +27,59 @@ This project is a Laravel-based application that implements a clean architecture
 1. **Clone the Repository**
 
 ```sh
-   git clone https://github.com/yourusername/laravel-authentication-project.git
-   cd laravel-authentication-project
+    git clone https://github.com/yourusername/laravel-authentication-project.git
+    cd laravel-authentication-project
 ```
 
 2. **Install Dependencies**
 
 ```sh
-   composer install
+    composer install
 ```
 
 3. **Set Up Environment Variables**
 Copy the .env.example to .env and configure your database and mail settings.
 
 ```sh
-   cp .env.example .env
+    cp .env.example .env
 ```
 
 4. **Generate Application Key**
 
 ```sh
-   php artisan key:generate
+    php artisan key:generate
 ```
 
-5. **Run the Application**
+5. **Create Form Request Class**
 
 ```sh
-   php artisan serve
+    php artisan make:request loginFormRequest
+    php artisan make:request registerFormRequest
+```
+
+6. **Run the Application**
+
+```sh
+    php artisan serve
+```
+
+## Custom Email for Reset Password
+
+This project includes a custom email template for resetting passwords.
+
+### Custom Email Implementation
+
+- **Mailable Class**: `ResetPasswordEmail` is used to send custom reset password emails.
+- **Email View**: Located at `resources/views/emails/reset_password.blade.php`.
+
+### Configuration
+
+If you want to use custom notification class for password reset, you can implement it as follows:
+
+1. **Generate Notification Class**:
+
+```sh
+    php artisan make:notification ResetPasswordNotification
 ```
 
 ## Design Pattern: Repository Pattern
@@ -84,9 +110,9 @@ namespace App\Repositories;
 
 interface UserRepositoryInterface
 {
-  public function attemptLogin(array $credentials): bool;
-  public function register(array $data);
-  // any interface
+    public function attemptLogin(array $credentials): bool;
+    public function createUser(array $request);
+    // any interface
 }
 ```
 
@@ -101,25 +127,21 @@ namespace App\Repositories;
 
 class UserRepository implements UserRepositoryInterface
 {
-public function attemptLogin(array $credentials): bool
-{
-  return Auth::attempt($credentials);
-}
+    public function attemptLogin(array $credentials): bool
+    {
+        return Auth::attempt($credentials);
+    }
 
-public function register(array $data)
-{
-  $user = User::create([
-    'name' => $data['name'],
-    'email' => $data['email'],
-    'password' => Hash::make($data['password']),
-  ]);
+    public function createUser(array $request)
+    {
+        $user = User::create([
+            'name' => $request['name'],
+            'email' => $request['email'],
+            'password' => Hash::make($request['password']),
+        ]);
 
-  Mail::to($user->email)->send(new VerificationEmail($user));
-
-  return $user;
-}
-
-// any implementation
+        return $user;
+    }
 }
 ```
 
@@ -134,10 +156,10 @@ namespace App\Providers;
 
 class AppServiceProvider extends ServiceProvider
 {
-  public function register()
-  {
-    $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
-  }
+    public function register()
+    {
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
+    }
 }
 ```
 
@@ -152,24 +174,29 @@ namespace App\Services;
 
 class AuthService
 {
-  protected $userRepository;
+    protected $userRepository;
 
-  public function __construct(UserRepositoryInterface $userRepository)
-  {
-    $this->userRepository = $userRepository;
-  }
+    public function __construct(UserRepositoryInterface $userRepository)
+    {
+        $this->userRepository = $userRepository;
+    }
 
-  public function login(array $credentials): bool
-  {
-    return $this->userRepository->attemptLogin($credentials);
-  }
+    public function authenticate(array $credentials): bool
+    {
+        return $this->userRepository->attemptLogin($credentials);
+    }
 
-  public function register(array $data)
-  {
-    return $this->userRepository->register($data);
-  }
+    public function register(array $request)
+    {
+        $registeredUser = $this->userRepository->createUser($request);
+        
+        // Manual action for send email $user->sendEmailVerificationNotification() or event(new Registered($user))
+        Mail::to($registeredUser->email)->send(new VerificationEmail($registeredUser));
 
-  // any service
+        return $registeredUser;
+    }
+
+    // any service
 }
 ```
 
@@ -184,39 +211,34 @@ namespace App\Http\Controllers;
 
 class AuthController extends Controller
 {
-  protected $authService;
+    protected $authService;
 
-  public function __construct(AuthService $authService)
-  {
-    $this->authService = $authService;
-  }
-
-  public function login(Request $request)
-  {
-    $credentials = $request->only('email', 'password');
-
-    if ($this->authService->login($credentials)) {
-      $request->session()->regenerate();
-      return redirect()->intended('/');
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
     }
 
-    return back()->withErrors([
-      'email' => 'The provided credentials do not match our records.',
-    ]);
-  }
+    public function login(loginFormRequest $request)
+    {
+        $credentials = $request->only('email', 'password');
 
-  public function register(registerUserRequest $request): RedirectResponse
-  {
-    $request->validate([
-      'name' => 'required|string|max:255',
-      'email' => 'required|string|email|max:255|unique:users',
-      'password' => 'required|string|min:8|confirmed',
-    ]);
+        if ($this->authService->authenticate($credentials)) {
+            session()->regenerate();
+            return redirect()->intended('/');
+        }
 
-    $this->authService->register($request->only(['name', 'email', 'password']));
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ]);
+    }
 
-    return redirect('/')->with('status', 'verification-link-sent');
-  }
+    public function register(registerUserRequest $request)
+    {
+        $user = $request->safe()->only(['name', 'email', 'password']);
+        $this->authService->register($user);
+
+        return redirect('/')->with('status', 'verification-link-sent');
+    }
 }
 
 ```
@@ -243,15 +265,15 @@ use Illuminate\Support\Facades\Cache;
 
 class CacheUserRepository implements UserRepositoryInterface
 {
-  public function attemptLogin(array $credentials): bool
-  {
-    // Implement login logic using cache
-  }
+    public function attemptLogin(array $credentials): bool
+    {
+        // Implement login logic using cache
+    }
 
-  public function register(array $data)
-  {
-    // Implement register logic using cache
-  }
+    public function register(array $data)
+    {
+        // Implement register logic using cache
+    }
 }
 ```
 
@@ -317,10 +339,10 @@ namespace App\Providers;
 
 class AppServiceProvider extends ServiceProvider
 {
-  public function register()
-  {
-    // binding any interface and implementation repository here
-  }
+    public function register()
+    {
+        // binding any interface and implementation repository here
+    }
 }
 ```
 
@@ -330,3 +352,41 @@ If you wish to contribute to this project, please fork the repository and submit
 
 ## License
 This project is licensed under the MIT License.
+
+<!--
+
+Controller:
+Berfungsi sebagai perantara antara request dan service.
+Mengambil data dari request dan memanggil service untuk menjalankan logika bisnis.
+Mengembalikan respons ke klien.
+
+Tanggung Jawab: Mengelola aliran permintaan HTTP dan menentukan respons.
+Tugas Utama:
+Menangani permintaan HTTP dan merespons.
+Mengambil input dari permintaan.
+Memanggil service untuk melakukan logika bisnis.
+Mengirim data ke view atau mengembalikan respons JSON.
+
+Service:
+Berfungsi sebagai lapisan logika bisnis.
+Mengenkapsulasi logika bisnis yang kompleks dan aturan aplikasi.
+Memanggil repository untuk melakukan operasi data.
+
+Tanggung Jawab: Mengelola logika bisnis.
+Tugas Utama:
+Mengenkapsulasi logika bisnis yang kompleks.
+Memanggil repositories untuk akses data.
+Memastikan transaksi yang konsisten jika diperlukan.
+
+Repository:
+Berfungsi sebagai lapisan akses data.
+Mengenkapsulasi semua interaksi dengan data source (database, API, cache).
+Memastikan bahwa logika bisnis di service tidak tercampur dengan logika akses data.
+
+Tanggung Jawab: Mengelola akses data.
+Tugas Utama:
+Menyediakan abstraksi antara data source dan logika bisnis.
+Melakukan operasi CRUD (Create, Read, Update, Delete) di data source.
+Mengambil dan menyimpan data dari dan ke database atau sumber data lainnya.
+
+-->
