@@ -46,19 +46,8 @@ Route::prefix('email')->group(function () {
     ->middleware(['auth', 'signed']);
 });
 
-Route::group([
-    'prefix' => 'forgot-password',
-    'middleware' => 'guest'
-], function () {
-    Route::get('/', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
-    Route::post('/', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
-});
+Route::get('forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+Route::post('forgot-password', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
 
-Route::group([
-    'prefix' => 'reset-password',
-    'middleware' => 'guest'
-], function () {
-    Route::get('/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
-
-    Route::post('/', [AuthController::class, 'resetPassword'])->name('password.update');
-});
+Route::get('reset-password/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
+Route::post('reset-password', [AuthController::class, 'resetPassword'])->name('password.update');

@@ -4,9 +4,9 @@
     <title>Reset Password</title>
 </head>
 <body>
-    <h1>Reset Your Password</h1>
-    <p>Click the button below to reset your password:</p>
-    <a href="{{ url('password/reset', $token + '?email=' + $email) }}">Reset Password</a>
-    <p>If you did not request this, please ignore this email.</p>
+    <h1>Hello {{ $name }},</h1>
+    <p>We received a request to reset your password. Click the link below to reset it:</p>
+    <a href="{{ $url }}">Reset Password</a>
+    <p>If you did not request a password reset, please ignore this email.</p>
 </body>
 </html>

@@ -25,8 +25,10 @@ class AuthService
 	{
 		$registeredUser = $this->userRepository->createUser($request);
 		
-		// Manual action for send email $user->sendEmailVerificationNotification() or event(new Registered($user))
-		Mail::to($registeredUser->email)->send(new VerificationEmail($registeredUser));
+		// Manual action for send custom email
+		$registeredUser->sendEmailVerificationNotification();
+		// or event(new Registered($registeredUser))
+		// Mail::to($registeredUser->email)->send(new VerificationEmail($registeredUser));
 
 		return $registeredUser;
 	}

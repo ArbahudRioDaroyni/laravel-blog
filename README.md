@@ -80,6 +80,7 @@ If you want to use custom notification class for password reset, you can impleme
 
 ```sh
     php artisan make:notification ResetPasswordNotification
+    php artisan make:notification EmailVerificationNotification
 ```
 
 ## Design Pattern: Repository Pattern

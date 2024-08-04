@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
-use App\Mail\VerificationEmail;
 use App\Http\Requests\LoginFormRequest;
 use App\Http\Requests\RegisterFormRequest;
 use App\Models\User;
 use App\Services\AuthService;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
@@ -90,15 +90,11 @@ class AuthController extends Controller
 				$request->only('email')
 		);
 
-		// if ($status === Password::RESET_LINK_SENT) {
-		// 	// Kirim email dengan Mailable kustom
-		// 	$token = Password::createToken($request->email);
-		// 	Mail::to($request->email)->send(new CustomResetPasswordEmail($token, $request->email));
-		// }
-
 		return $status === Password::RESET_LINK_SENT
 			? back()->with(['status' => __($status)])
 			: back()->withErrors(['email' => __($status)]);
+
+		return back()->with('status', 'We have emailed your password reset link!');
 	}
 
 	public function showResetForm($token)
