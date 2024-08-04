@@ -5,13 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
 use App\Mail\VerificationEmail;
-use App\Mail\ResetPasswordEmail;
-use App\Http\Requests\registerUserRequest;
+use App\Http\Requests\LoginFormRequest;
+use App\Http\Requests\RegisterFormRequest;
 use App\Models\User;
 use App\Services\AuthService;
 
@@ -29,12 +28,12 @@ class AuthController extends Controller
 		return view('auth.login');
 	}
 
-	public function login(Request $request)
+	public function login(LoginFormRequest $request)
 	{
 		$credentials = $request->only('email', 'password');
 
-		if ($this->authService->login($credentials)) {
-			$request->session()->regenerate();
+		if ($this->authService->authenticate($credentials)) {
+			session()->regenerate();
 			return redirect()->intended('/');
 		}
 
@@ -46,8 +45,8 @@ class AuthController extends Controller
 	public function logout(Request $request)
 	{
 		Auth::logout();
-		$request->session()->invalidate();
-		$request->session()->regenerateToken();
+		session()->invalidate();
+		session()->regenerateToken();
 
 		return redirect('/login');
 	}
@@ -57,17 +56,24 @@ class AuthController extends Controller
 		return view('auth.register');
 	}
 
-	public function register(registerUserRequest $request): RedirectResponse
+	public function register(RegisterFormRequest $request)
 	{
-		$this->authService->register($request->safe()->only(['name', 'email', 'password']));
+		$user = $request->safe()->only(['name', 'email', 'password']);
+		$this->authService->register($user);
 
 		return redirect('/')->with('status', 'verification-link-sent');
+	}
+
+	public function showEmailNotice()
+	{
+		return !$request->user()->hasVerifiedEmail() ? view('auth.verify-email') : redirect('/');
 	}
 
 	public function resendVerificationEmail(Request $request)
 	{
 		$user = $request->user();
-		Mail::to($user->email)->send(new VerificationEmail($user));
+		$this->authService->resendVerificationEmail($user);
+
 		return back()->with('status', 'verification-link-sent');
 	}
 

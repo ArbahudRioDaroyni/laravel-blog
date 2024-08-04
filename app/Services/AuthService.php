@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Repositories\UserRepositoryInterface;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\VerificationEmail;
 
 class AuthService
 {
@@ -13,13 +16,23 @@ class AuthService
 			$this->userRepository = $userRepository;
 	}
 
-	public function login(array $credentials): bool
+	public function authenticate(array $credentials): bool
 	{
 		return $this->userRepository->attemptLogin($credentials);
 	}
 
-	public function register(array $data)
+	public function register(array $request)
 	{
-		return $this->userRepository->register($data);
+		$registeredUser = $this->userRepository->createUser($request);
+		
+		// Manual action for send email $user->sendEmailVerificationNotification() or event(new Registered($user))
+		Mail::to($registeredUser->email)->send(new VerificationEmail($registeredUser));
+
+		return $registeredUser;
+	}
+
+	public function resendVerificationEmail(User $user)
+	{
+		Mail::to($user->email)->send(new VerificationEmail($user));
 	}
 }
