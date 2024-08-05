@@ -17,9 +17,9 @@ class UserRepository implements UserRepositoryInterface
     public function createUser(array $user): User
     {
         return User::create([
-            'name' => $request['name'],
-            'email' => $request['email'],
-            'password' => Hash::make($request['password']),
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'password' => Hash::make($user['password']),
             // 'remember_token' => Str::random(60),
         ]);
     }

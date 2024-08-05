@@ -73,8 +73,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function getUrlEmailVerificationNotification()
     {
         return URL::signedRoute('verification.verify', [
-			'id' => $this->getKey(),
-			'hash' => sha1($this->email),
-		], now()->addMinutes(60));
+            'id' => $this->getKey(),
+            'hash' => sha1($this->email),
+        ], now()->addMinutes(60));
     }
 }
