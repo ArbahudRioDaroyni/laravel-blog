@@ -6,7 +6,7 @@ use App\Models\User;
 use App\Repositories\UserRepositoryInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use App\Events\PasswordReset;
+use Illuminate\Auth\Events\PasswordReset;
 
 class AuthService
 {
@@ -17,22 +17,27 @@ class AuthService
         $this->userRepository = $userRepository;
     }
 
-    public function isAuthenticate(array $credentials) : bool
+    public function getUser(): User
+    {
+        return $this->userRepository->getUserAuthenticated();
+    }
+
+    public function isUserAuthenticated(array $credentials) : bool
     {
         return $this->userRepository->attemptLogin($credentials);
     }
 
     public function register(array $request) : User
     {
-        $registeredUser = $this->userRepository->createUser($request);
-        $this->sendVerificationEmail($registeredUser);
+        $user = $this->userRepository->createUser($request);
+        $this->sendVerificationEmail($user);
 
-        return $registeredUser;
+        return $user;
     }
 
-    public function resendVerificationEmail(User $user): void
+    public function logout(): void
     {
-        $this->sendVerificationEmail($user);
+        $this->userRepository->signout();
     }
 
     public function resetPassword(array $data)
@@ -53,7 +58,7 @@ class AuthService
         return $this->userRepository->sendResetLinkEmail($data);
     }
 
-    protected function sendVerificationEmail($user) : void
+    public function sendVerificationEmail(User $user): void
     {
         $user->sendEmailVerificationNotification();
         // Mail::to($user->email)->send(new VerificationEmail($user));

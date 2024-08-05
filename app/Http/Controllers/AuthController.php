@@ -2,17 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Auth\Events\PasswordReset;
-use Illuminate\Support\Str;
-use App\Models\User;
+use App\Services\AuthService;
 use App\Http\Requests\LoginFormRequest;
 use App\Http\Requests\RegisterFormRequest;
 use App\Http\Requests\ResetPasswordRequest;
-use App\Services\AuthService;
+use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Password;
+use Illuminate\View\View;
 
 class AuthController extends Controller
 {
@@ -23,15 +20,15 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
-    public function showLoginForm()
+    public function showLoginForm(): View
     {
         return view('auth.login');
     }
 
-    public function login(LoginFormRequest $request)
+    public function login(LoginFormRequest $request): RedirectResponse
     {
         $credentials = $request->safe()->only('email', 'password');
-        if ($this->authService->isAuthenticate($credentials)) {
+        if ($this->authService->isUserAuthenticated($credentials)) {
             session()->regenerate();
             return redirect()->intended('/');
         }
@@ -41,21 +38,21 @@ class AuthController extends Controller
         ]);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): RedirectResponse
     {
-        Auth::logout();
+        $this->authService->logout();
         session()->invalidate();
         session()->regenerateToken();
 
         return redirect('/login');
     }
 
-    public function showRegisterForm()
+    public function showRegisterForm(): View
     {
         return view('auth.register');
     }
 
-    public function register(RegisterFormRequest $request)
+    public function register(RegisterFormRequest $request): RedirectResponse
     {
         $user = $request->safe()->only(['name', 'email', 'password']);
         $this->authService->register($user);
@@ -65,28 +62,30 @@ class AuthController extends Controller
 
     public function showVerifiedEmailStatus()
     {
-        return !$request->user()->hasVerifiedEmail()
-            ? view('auth.verify-email')
-            : redirect('/');
+        return $this->authService->getUser()->hasVerifiedEmail()
+            ? response()->json([
+                'message' => 'hasVerifiedEmail',
+            ])
+            : view('auth.verify-email');
     }
 
-    public function resendVerificationEmail(Request $request)
+    public function resendVerificationEmail(Request $request): RedirectResponse
     {
         $user = $request->user();
         if ($user->hasVerifiedEmail()) {
             return redirect('/')->with('status', 'Your email is already verified.');
         }
-        $this->authService->resendVerificationEmail($user);
+        $this->authService->sendVerificationEmail($user);
 
         return back()->with('status', 'verification-link-sent');
     }
 
-    public function showForgotPasswordForm()
+    public function showForgotPasswordForm(): View
     {
         return view('auth.forgot-password');
     }
 
-    public function sendResetLinkEmail(Request $request)
+    public function sendResetLinkEmail(Request $request): RedirectResponse
     {
         $request->validate(['email' => 'required|email']);
         $status = $this->authService->sendResetLinkEmail(
@@ -100,12 +99,12 @@ class AuthController extends Controller
         return back()->with('status', 'We have emailed your password reset link!');
     }
 
-    public function showResetForm($token)
+    public function showResetForm($token): View
     {
         return view('auth.reset-password', ['token' => $token]);
     }
 
-    public function resetPassword(ResetPasswordRequest $request)
+    public function resetPassword(ResetPasswordRequest $request): RedirectResponse
     {
         $data = $request->safe()->only('email', 'password', 'password_confirmation', 'token');
         $status = $this->authService->resetPassword($data);

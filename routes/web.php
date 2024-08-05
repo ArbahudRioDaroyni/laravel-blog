@@ -7,11 +7,11 @@ use App\Http\Controllers\{
     AuthController,
 };
 
-Route::middleware(['verified'])->group(function () {
+// Route::middleware(['verified'])->group(function () {
     Route::get('/', function () {
         return view('welcome');
     });
-});
+// });
 
 Route::group([
     'prefix' => 'login',
@@ -39,7 +39,7 @@ Route::prefix('email')->group(function () {
     Route::get('/notice', [AuthController::class, 'showVerifiedEmailStatus'])->name('verification.notice')
     ->middleware(['auth']);
 
-    Route::get('email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+    Route::get('/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
         $request->fulfill();
         return redirect('/');
     })->name('verification.verify')

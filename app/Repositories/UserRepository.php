@@ -9,20 +9,29 @@ use App\Events\PasswordReset;
 
 class UserRepository implements UserRepositoryInterface
 {
+    public function getUserAuthenticated() : User
+    {
+        return Auth::user();
+    }
+
+    public function createUser(array $user): User
+    {
+        return User::create([
+            'name' => $request['name'],
+            'email' => $request['email'],
+            'password' => Hash::make($request['password']),
+            // 'remember_token' => Str::random(60),
+        ]);
+    }
+
     public function attemptLogin(array $credentials): bool
     {
         return Auth::attempt($credentials);
     }
 
-    public function createUser(array $request)
+    public function signout(): void
     {
-        $user = User::create([
-            'name' => $request['name'],
-            'email' => $request['email'],
-            'password' => Hash::make($request['password']),
-        ]);
-
-        return $user;
+        Auth::logout();
     }
 
     public function resetPassword(array $data, callable $callback)
