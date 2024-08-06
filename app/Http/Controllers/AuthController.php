@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AuthService;
+use App\Repositories\UserRepositoryInterface;
 use App\Http\Requests\LoginFormRequest;
 use App\Http\Requests\RegisterFormRequest;
 use App\Http\Requests\ResetPasswordRequest;
@@ -14,10 +15,12 @@ use Illuminate\View\View;
 class AuthController extends Controller
 {
     protected $authService;
+    protected $userRepository;
 
-    public function __construct(AuthService $authService)
+    public function __construct(AuthService $authService, UserRepositoryInterface $userRepository)
     {
         $this->authService = $authService;
+        $this->userRepository = $userRepository;
     }
 
     public function showLoginForm(): View
@@ -28,7 +31,8 @@ class AuthController extends Controller
     public function login(LoginFormRequest $request): RedirectResponse
     {
         $credentials = $request->safe()->only('email', 'password');
-        if ($this->authService->isUserAuthenticated($credentials)) {
+
+        if ($this->userRepository->isUserAuthenticated($credentials)) {
             session()->regenerate();
             return redirect()->intended('/');
         }
@@ -40,7 +44,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        $this->authService->logout();
+        $this->userRepository->signout();
         session()->invalidate();
         session()->regenerateToken();
 
@@ -55,14 +59,15 @@ class AuthController extends Controller
     public function register(RegisterFormRequest $request): RedirectResponse
     {
         $user = $request->safe()->only(['name', 'email', 'password']);
-        $this->authService->register($user);
+        $registeredUser = $this->userRepository->createUser($user);
+        $registeredUser->sendEmailVerificationNotification();
 
         return redirect('/')->with('status', 'verification-link-sent');
     }
 
     public function showVerifiedEmailStatus()
     {
-        return $this->authService->getUser()->hasVerifiedEmail()
+        return $this->userRepository->getUserAuthenticated()->hasVerifiedEmail()
             ? response()->json([
                 'message' => 'hasVerifiedEmail',
             ])
@@ -72,10 +77,12 @@ class AuthController extends Controller
     public function resendVerificationEmail(Request $request): RedirectResponse
     {
         $user = $request->user();
+
         if ($user->hasVerifiedEmail()) {
             return redirect('/')->with('status', 'Your email is already verified.');
         }
-        $this->authService->sendVerificationEmail($user);
+
+        $user->sendEmailVerificationNotification($user);
 
         return back()->with('status', 'verification-link-sent');
     }
@@ -85,10 +92,10 @@ class AuthController extends Controller
         return view('auth.forgot-password');
     }
 
-    public function sendResetLinkEmail(Request $request): RedirectResponse
+    public function sendResetPasswordLinkEmail(Request $request): RedirectResponse
     {
         $request->validate(['email' => 'required|email']);
-        $status = $this->authService->sendResetLinkEmail(
+        $status = $this->userRepository->sendResetPasswordLinkEmail(
             $request->only('email')
         );
 
@@ -99,7 +106,7 @@ class AuthController extends Controller
         return back()->with('status', 'We have emailed your password reset link!');
     }
 
-    public function showResetForm($token): View
+    public function showResetPasswordForm($token): View
     {
         return view('auth.reset-password', ['token' => $token]);
     }
@@ -107,7 +114,7 @@ class AuthController extends Controller
     public function resetPassword(ResetPasswordRequest $request): RedirectResponse
     {
         $data = $request->safe()->only('email', 'password', 'password_confirmation', 'token');
-        $status = $this->authService->resetPassword($data);
+        $status = $this->userRepository->resetPassword($data);
 
         return $status === Password::PASSWORD_RESET
             ? redirect()->route('login')->with('status', __($status))

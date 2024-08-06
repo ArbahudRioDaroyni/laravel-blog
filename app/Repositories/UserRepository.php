@@ -3,9 +3,11 @@
 namespace App\Repositories;
 
 use App\Models\User;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use App\Events\PasswordReset;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Events\PasswordReset;
 
 class UserRepository implements UserRepositoryInterface
 {
@@ -24,7 +26,7 @@ class UserRepository implements UserRepositoryInterface
         ]);
     }
 
-    public function attemptLogin(array $credentials): bool
+    public function isUserAuthenticated(array $credentials): bool
     {
         return Auth::attempt($credentials);
     }
@@ -34,20 +36,24 @@ class UserRepository implements UserRepositoryInterface
         Auth::logout();
     }
 
-    public function resetPassword(array $data, callable $callback)
-    {
-        $status = Password::reset(
-            $data,
-            function ($user, $password) use ($callback) {
-                $callback($user, $password);
-            }
-        );
-
-        return $status;
-    }
-
-    public function sendResetLinkEmail(array $data)
+    public function sendResetPasswordLinkEmail(array $data): string
     {
         return Password::sendResetLink($data);
+    }
+
+    public function resetPassword(array $data): string
+    {
+        return Password::reset(
+            $data,
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->setRememberToken(Str::random(60));
+
+                $user->save();
+
+                event(new PasswordReset($user));
+            }
+        );
     }
 }

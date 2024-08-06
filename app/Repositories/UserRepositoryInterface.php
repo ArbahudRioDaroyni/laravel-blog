@@ -8,8 +8,8 @@ interface UserRepositoryInterface
 {
     public function getUserAuthenticated() : User;
     public function createUser(array $user): User;
-    public function attemptLogin(array $credentials): bool;
+    public function isUserAuthenticated(array $credentials): bool;
     public function signout(): void;
-    public function resetPassword(array $data, callable $callback);
-    public function sendResetLinkEmail(array $data);
+    public function sendResetPasswordLinkEmail(array $data): string;
+    public function resetPassword(array $data): string;
 }

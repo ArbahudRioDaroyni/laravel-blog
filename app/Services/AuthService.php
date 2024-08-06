@@ -17,30 +17,7 @@ class AuthService
         $this->userRepository = $userRepository;
     }
 
-    public function getUser(): User
-    {
-        return $this->userRepository->getUserAuthenticated();
-    }
-
-    public function isUserAuthenticated(array $credentials) : bool
-    {
-        return $this->userRepository->attemptLogin($credentials);
-    }
-
-    public function register(array $request) : User
-    {
-        $user = $this->userRepository->createUser($request);
-        $this->sendVerificationEmail($user);
-
-        return $user;
-    }
-
-    public function logout(): void
-    {
-        $this->userRepository->signout();
-    }
-
-    public function resetPassword(array $data)
+    public function resetPassword(array $data): string
     {
         return $this->userRepository->resetPassword($data, function ($user, $password) {
             $user->forceFill([
@@ -51,16 +28,5 @@ class AuthService
 
             event(new PasswordReset($user));
         });
-    }
-
-    public function sendResetLinkEmail(array $data)
-    {
-        return $this->userRepository->sendResetLinkEmail($data);
-    }
-
-    public function sendVerificationEmail(User $user): void
-    {
-        $user->sendEmailVerificationNotification();
-        // Mail::to($user->email)->send(new VerificationEmail($user));
     }
 }
